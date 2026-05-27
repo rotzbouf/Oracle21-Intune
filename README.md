@@ -2,27 +2,44 @@
 
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](https://unlicense.org)
 
-Four Win32 packages, fully bundled (.intunewin contains all installer files).
+Six Win32 packages for deploying Oracle 21c connectivity to Windows clients via Intune.
+Choose the packages that match your use case — ODBC-only for Excel/Access, full client for SQL*Plus/OCI/JDBC.
+
+---
+
+## Which packages do you need?
+
+| Use case | Packages to deploy |
+|----------|--------------------|
+| Excel / Access / ODBC apps only | VCRedist + **Oracle ODBC** |
+| SQL\*Plus, OCI, JDBC, full Oracle tooling | VCRedist + **Oracle Client** |
+| Both ODBC apps and full tooling on the same machine | VCRedist + Oracle ODBC + Oracle Client |
+
+> **ODBC packages are much lighter** (~25–40 MB .intunewin vs ~500–700 MB for the full client).
+> Use them wherever the full client is not strictly needed.
 
 ---
 
 ## Package overview & dependency chain
 
 ```
-┌─────────────────────────┐    ┌─────────────────────────┐
-│  VCRedist 2015-2022 x64 │    │  VCRedist 2015-2022 x86 │
-│  (no dependencies)      │    │  (no dependencies)      │
-└────────────┬────────────┘    └────────────┬────────────┘
-             │ auto-install                 │ auto-install
-             ▼                             ▼
-┌─────────────────────────┐    ┌─────────────────────────┐
-│  Oracle 21c Client x64  │◄───│  Oracle 21c Client x86  │
-│  depends on VCRedist x64│    │  depends on VCRedist x86│
-└─────────────────────────┘    │  + Oracle x64           │
-                               └─────────────────────────┘
+┌─────────────────────────┐         ┌─────────────────────────┐
+│  VCRedist 2015-2022 x64 │         │  VCRedist 2015-2022 x86 │
+│  (no dependencies)      │         │  (no dependencies)      │
+└────────────┬────────────┘         └──────────┬──────────────┘
+             │ auto-install                    │ auto-install
+     ┌───────┴────────┐               ┌────────┴────────┐
+     ▼                ▼               ▼                 ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌───────────────────────┐
+│ Oracle ODBC  │ │Oracle Client │ │ Oracle ODBC  │ │   Oracle Client x86   │
+│    x64       │ │    x64       │ │    x86       │ │ deps: VCRedist x86    │
+│ (Excel x64,  │ │ (SQL*Plus,   │ │ (Excel x86,  │ │       + Oracle Cli x64│
+│  Power BI)   │ │  OCI, JDBC)  │ │  Access)     │ └───────────────────────┘
+└──────────────┘ └──────────────┘ └──────────────┘
 ```
 
-**Upload order to Intune:** VCRedist x64 → VCRedist x86 → Oracle x64 → Oracle x86
+**Upload order to Intune:**
+VCRedist x64 → VCRedist x86 → Oracle ODBC x64 → Oracle ODBC x86 → Oracle Client x64 → Oracle Client x86
 
 ---
 
@@ -32,30 +49,48 @@ Four Win32 packages, fully bundled (.intunewin contains all installer files).
 Oracle21_Intune/
 │
 ├── vcredist_x64/
-│   ├── VC_redist.x64.exe           ← ADD: your installer
+│   ├── VC_redist.x64.exe               ← ADD: Microsoft VC++ 2015-2022 x64
 │   ├── Install-VCRedist_x64.ps1
 │   ├── Uninstall-VCRedist_x64.ps1
 │   └── Detect-VCRedist_x64.ps1
 │
 ├── vcredist_x86/
-│   ├── VC_redist.x86.exe           ← ADD: your installer
+│   ├── VC_redist.x86.exe               ← ADD: Microsoft VC++ 2015-2022 x86
 │   ├── Install-VCRedist_x86.ps1
 │   ├── Uninstall-VCRedist_x86.ps1
 │   └── Detect-VCRedist_x86.ps1
 │
+├── odbc_x64/
+│   ├── instantclient-basic-windows.x64-21.*.zip  ← ADD: Oracle download
+│   ├── instantclient-odbc-windows.x64-21.*.zip   ← ADD: Oracle download
+│   ├── tnsnames.ora                    ← ADD: your file
+│   ├── sqlnet.ora                      ← ADD: your file
+│   ├── Install-OracleODBC_x64.ps1
+│   ├── Uninstall-OracleODBC_x64.ps1
+│   └── Detect-OracleODBC_x64.ps1
+│
+├── odbc_x86/
+│   ├── instantclient-basic-nt-21.*.zip           ← ADD: Oracle download
+│   ├── instantclient-odbc-nt-21.*.zip            ← ADD: Oracle download
+│   ├── tnsnames.ora                    ← ADD: your file
+│   ├── sqlnet.ora                      ← ADD: your file
+│   ├── Install-OracleODBC_x86.ps1
+│   ├── Uninstall-OracleODBC_x86.ps1
+│   └── Detect-OracleODBC_x86.ps1
+│
 ├── x64/
-│   ├── setup.exe + Oracle files    ← ADD: full extracted Oracle x64 installer
-│   ├── tnsnames.ora                ← ADD: your file
-│   ├── sqlnet.ora                  ← ADD: your file
+│   ├── setup.exe + Oracle installer files  ← ADD: extracted Oracle Client x64
+│   ├── tnsnames.ora                    ← ADD: your file
+│   ├── sqlnet.ora                      ← ADD: your file
 │   ├── client_install_x64.rsp
 │   ├── Install-Oracle21c_x64.ps1
 │   ├── Uninstall-Oracle21c_x64.ps1
 │   └── Detect-Oracle21c_x64.ps1
 │
 └── x86/
-    ├── setup.exe + Oracle files    ← ADD: full extracted Oracle x86 installer
-    ├── tnsnames.ora                ← ADD: your file
-    ├── sqlnet.ora                  ← ADD: your file
+    ├── setup.exe + Oracle installer files  ← ADD: extracted Oracle Client x86
+    ├── tnsnames.ora                    ← ADD: your file
+    ├── sqlnet.ora                      ← ADD: your file
     ├── client_install_x86.rsp
     ├── Install-Oracle21c_x86.ps1
     ├── Uninstall-Oracle21c_x86.ps1
@@ -64,39 +99,63 @@ Oracle21_Intune/
 
 ---
 
-## Step 1 — Populate the folders
+## Step 1 — Download and populate the folders
 
-| Folder | What to add |
-|--------|------------|
-| `vcredist_x64\` | `VC_redist.x64.exe` from Microsoft |
-| `vcredist_x86\` | `VC_redist.x86.exe` from Microsoft |
-| `x64\` | All extracted Oracle 21c x64 installer files + `tnsnames.ora` + `sqlnet.ora` |
-| `x86\` | All extracted Oracle 21c x86 installer files + `tnsnames.ora` + `sqlnet.ora` |
+### VCRedist installers
+Download from [Microsoft Visual C++ Redistributable latest](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist):
+
+| File | Destination |
+|------|------------|
+| `VC_redist.x64.exe` | `vcredist_x64\` |
+| `VC_redist.x86.exe` | `vcredist_x86\` |
+
+### Oracle Instant Client ZIPs (for ODBC packages)
+Download from Oracle — **free, no login required**:
+
+| File | Download page | Destination |
+|------|--------------|------------|
+| `instantclient-basic-windows.x64-21.*.zip` | [Windows x64](https://www.oracle.com/database/technologies/instant-client/winx64-64-downloads.html) → Basic | `odbc_x64\` |
+| `instantclient-odbc-windows.x64-21.*.zip` | [Windows x64](https://www.oracle.com/database/technologies/instant-client/winx64-64-downloads.html) → ODBC | `odbc_x64\` |
+| `instantclient-basic-nt-21.*.zip` | [Windows x86](https://www.oracle.com/database/technologies/instant-client/microsoft-windows-32-downloads.html) → Basic | `odbc_x86\` |
+| `instantclient-odbc-nt-21.*.zip` | [Windows x86](https://www.oracle.com/database/technologies/instant-client/microsoft-windows-32-downloads.html) → ODBC | `odbc_x86\` |
+
+### Oracle full client installers (for Client packages)
+Place the fully extracted Oracle 21c installer content into `x64\` and `x86\`.
+
+### tnsnames.ora and sqlnet.ora
+Copy your files into **every** package folder that needs them:
+`odbc_x64\`, `odbc_x86\`, `x64\`, `x86\`
 
 ---
 
-## Step 2 — Create the four .intunewin packages
+## Step 2 — Create the .intunewin packages
+
+Download [Microsoft Win32 Content Prep Tool](https://github.com/microsoft/Microsoft-Win32-Content-Prep-Tool).
 
 ```cmd
-IntuneWinAppUtil.exe -c "C:\Build\vcredist_x64" -s "Install-VCRedist_x64.ps1" -o "C:\Build\Output" -q
-IntuneWinAppUtil.exe -c "C:\Build\vcredist_x86" -s "Install-VCRedist_x86.ps1" -o "C:\Build\Output" -q
-IntuneWinAppUtil.exe -c "C:\Build\x64"          -s "Install-Oracle21c_x64.ps1" -o "C:\Build\Output" -q
-IntuneWinAppUtil.exe -c "C:\Build\x86"          -s "Install-Oracle21c_x86.ps1" -o "C:\Build\Output" -q
+IntuneWinAppUtil.exe -c "C:\Build\vcredist_x64" -s "Install-VCRedist_x64.ps1"    -o "C:\Build\Output" -q
+IntuneWinAppUtil.exe -c "C:\Build\vcredist_x86" -s "Install-VCRedist_x86.ps1"    -o "C:\Build\Output" -q
+IntuneWinAppUtil.exe -c "C:\Build\odbc_x64"     -s "Install-OracleODBC_x64.ps1"  -o "C:\Build\Output" -q
+IntuneWinAppUtil.exe -c "C:\Build\odbc_x86"     -s "Install-OracleODBC_x86.ps1"  -o "C:\Build\Output" -q
+IntuneWinAppUtil.exe -c "C:\Build\x64"          -s "Install-Oracle21c_x64.ps1"   -o "C:\Build\Output" -q
+IntuneWinAppUtil.exe -c "C:\Build\x86"          -s "Install-Oracle21c_x86.ps1"   -o "C:\Build\Output" -q
 ```
 
-Expected output sizes:
 | Package | Approximate .intunewin size |
-|---------|----------------------------|
+|---------|-----------------------------|
 | VCRedist x64 | ~15 MB |
 | VCRedist x86 | ~10 MB |
-| Oracle x64 | ~500–700 MB |
-| Oracle x86 | ~500–700 MB |
+| Oracle ODBC x64 | ~25–40 MB |
+| Oracle ODBC x86 | ~25–40 MB |
+| Oracle Client x64 | ~500–700 MB |
+| Oracle Client x86 | ~500–700 MB |
 
 ---
 
 ## Step 3 — Configure each app in Intune
 
-Go to **Intune > Apps > Windows > Add > Windows app (Win32)**. Upload in the order below.
+Go to **Intune > Apps > Windows > Add > Windows app (Win32)**.
+Upload in the order listed below so dependencies are available before they are referenced.
 
 ---
 
@@ -111,8 +170,7 @@ Go to **Intune > Apps > Windows > Add > Windows app (Win32)**. Upload in the ord
 | **Max install time** | 30 min |
 | **OS architecture** | 64-bit |
 | **Min OS** | Windows 10 1909 |
-| **Detection script** | `Detect-VCRedist_x64.ps1` |
-| **Run as 32-bit** | **No** |
+| **Detection script** | `Detect-VCRedist_x64.ps1` / Run as 32-bit: **No** |
 | **Dependencies** | — |
 
 ---
@@ -128,13 +186,50 @@ Go to **Intune > Apps > Windows > Add > Windows app (Win32)**. Upload in the ord
 | **Max install time** | 30 min |
 | **OS architecture** | 32-bit or 64-bit |
 | **Min OS** | Windows 10 1909 |
-| **Detection script** | `Detect-VCRedist_x86.ps1` |
-| **Run as 32-bit** | **Yes** |
+| **Detection script** | `Detect-VCRedist_x86.ps1` / Run as 32-bit: **Yes** |
 | **Dependencies** | — |
 
 ---
 
-### App 3 — Oracle 21c Client (x64)
+### App 3 — Oracle ODBC Driver 21c (x64)
+
+> For **64-bit applications**: Excel 64-bit, Power BI Desktop, 64-bit ODBC data sources.
+
+| Setting | Value |
+|---------|-------|
+| **Name** | Oracle ODBC Driver 21c (x64) |
+| **Install command** | `powershell.exe -ExecutionPolicy Bypass -File Install-OracleODBC_x64.ps1` |
+| **Uninstall command** | `powershell.exe -ExecutionPolicy Bypass -File Uninstall-OracleODBC_x64.ps1` |
+| **Install behaviour** | System |
+| **Max install time** | 30 min |
+| **OS architecture** | 64-bit |
+| **Min OS** | Windows 10 1909 |
+| **Detection script** | `Detect-OracleODBC_x64.ps1` / Run as 32-bit: **No** |
+| **Dependencies** | VCRedist 2015-2022 (x64) — Auto Install: Yes |
+
+---
+
+### App 4 — Oracle ODBC Driver 21c (x86)
+
+> For **32-bit applications**: Excel 32-bit, Access, legacy line-of-business apps.
+
+| Setting | Value |
+|---------|-------|
+| **Name** | Oracle ODBC Driver 21c (x86) |
+| **Install command** | `powershell.exe -ExecutionPolicy Bypass -File Install-OracleODBC_x86.ps1` |
+| **Uninstall command** | `powershell.exe -ExecutionPolicy Bypass -File Uninstall-OracleODBC_x86.ps1` |
+| **Install behaviour** | System |
+| **Max install time** | 30 min |
+| **OS architecture** | 32-bit or 64-bit |
+| **Min OS** | Windows 10 1909 |
+| **Detection script** | `Detect-OracleODBC_x86.ps1` / Run as 32-bit: **Yes** |
+| **Dependencies** | VCRedist 2015-2022 (x86) — Auto Install: Yes |
+
+---
+
+### App 5 — Oracle 21c Client (x64)
+
+> Full client: SQL\*Plus, OCI, JDBC, ODP.NET. Skip if ODBC-only is sufficient.
 
 | Setting | Value |
 |---------|-------|
@@ -145,13 +240,14 @@ Go to **Intune > Apps > Windows > Add > Windows app (Win32)**. Upload in the ord
 | **Max install time** | **120 min** ⚠️ |
 | **OS architecture** | 64-bit |
 | **Min OS** | Windows 10 1909 |
-| **Detection script** | `Detect-Oracle21c_x64.ps1` |
-| **Run as 32-bit** | **No** |
+| **Detection script** | `Detect-Oracle21c_x64.ps1` / Run as 32-bit: **No** |
 | **Dependencies** | VCRedist 2015-2022 (x64) — Auto Install: Yes |
 
 ---
 
-### App 4 — Oracle 21c Client (x86)
+### App 6 — Oracle 21c Client (x86)
+
+> Full 32-bit client. Skip if ODBC-only is sufficient.
 
 | Setting | Value |
 |---------|-------|
@@ -162,13 +258,12 @@ Go to **Intune > Apps > Windows > Add > Windows app (Win32)**. Upload in the ord
 | **Max install time** | **120 min** ⚠️ |
 | **OS architecture** | 32-bit or 64-bit |
 | **Min OS** | Windows 10 1909 |
-| **Detection script** | `Detect-Oracle21c_x86.ps1` |
-| **Run as 32-bit** | **Yes** |
+| **Detection script** | `Detect-Oracle21c_x86.ps1` / Run as 32-bit: **Yes** |
 | **Dependencies** | VCRedist 2015-2022 (x86) — Auto Install: Yes |
 |  | Oracle 21c Client (x64) — Auto Install: Yes |
 
-> ⚠️ **120 minutes for Oracle** — Oracle extraction + OUI on slow hardware can exceed
-> the default 60-minute timeout. Intune reports failure while the install is still running.
+> ⚠️ **120 minutes for Oracle Client** — Oracle extraction + OUI on slow hardware can exceed
+> the default 60-minute timeout. Intune will report failure while the install is still running.
 
 ---
 
@@ -188,15 +283,27 @@ Go to **Intune > Apps > Windows > Add > Windows app (Win32)**. Upload in the ord
 
 ### VCRedist packages
 ```
-1. Check installer exe is present in package
+1. Verify installer exe is present in package
 2. Run /install /quiet /norestart
-3. Handle exit codes: 0=OK, 3010=OK+reboot, 1638=already newer installed
-4. Verify via registry (Installed=1) + DLL present
+3. Handle exit codes: 0=OK  3010=OK+reboot  1638=newer version already installed
+4. Verify via registry (Installed=1) + runtime DLL present
 ```
 
-### Oracle packages
+### Oracle ODBC packages (Instant Client)
 ```
-1. Pre-flight: verify setup.exe and .rsp are present
+1. Find Basic and ODBC ZIPs in package folder (by wildcard pattern)
+2. Skip extraction if ODBC driver already registered (idempotent)
+3. Extract Basic ZIP → C:\Oracle\instantclient_21_x64 (or x86)
+4. Extract ODBC ZIP  → same folder (merges in ODBC files + odbc_install.exe)
+5. Run odbc_install.exe from the install directory to register the driver
+6. Copy tnsnames.ora + sqlnet.ora into the install directory
+7. Add install directory to system PATH (needed for DLL resolution)
+8. Set TNS_ADMIN system environment variable
+```
+
+### Oracle Client packages (full Runtime)
+```
+1. Verify setup.exe and .rsp file are present
 2. Skip if sqlplus.exe already exists (idempotent)
 3. OUI silent install: -silent -waitforcompletion -ignorePrereq
 4. Post-install verify: sqlplus.exe exists
@@ -209,44 +316,69 @@ Go to **Intune > Apps > Windows > Add > Windows app (Win32)**. Upload in the ord
 
 ## Install results on the client
 
-| | VCRedist x64 | VCRedist x86 |
-|--|---|---|
-| Registry | `HKLM\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64` | `HKLM\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\x86` |
-| Key DLL | `C:\Windows\System32\msvcp140.dll` | `C:\Windows\SysWOW64\msvcp140.dll` |
+### VCRedist
 
-| | Oracle x64 | Oracle x86 |
-|--|---|---|
-| Oracle Home | `C:\Oracle\product\21.0.0\client_x64` | `C:\Oracle\product\21.0.0\client_x86` |
-| network\admin | `…\client_x64\network\admin\` | `…\client_x86\network\admin\` |
-| Registry | `HKLM\SOFTWARE\Oracle\KEY_OraClient21Home1_x64` | `HKLM\SOFTWARE\WOW6432Node\Oracle\KEY_OraClient21Home1_x86` |
-| in PATH | `client_x64\bin` ✔ | not added (intentional) |
+| | x64 | x86 |
+|--|-----|-----|
+| **Registry** | `HKLM\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64` | `HKLM\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\x86` |
+| **Key DLL** | `C:\Windows\System32\msvcp140.dll` | `C:\Windows\SysWOW64\msvcp140.dll` |
+
+### Oracle ODBC (Instant Client)
+
+| | x64 | x86 |
+|--|-----|-----|
+| **Install dir** | `C:\Oracle\instantclient_21_x64\` | `C:\Oracle\instantclient_21_x86\` |
+| **ODBC registry** | `HKLM\SOFTWARE\ODBC\ODBCINST.INI\`<br>`Oracle in instantclient_21_x64` | `HKLM\SOFTWARE\WOW6432Node\ODBC\ODBCINST.INI\`<br>`Oracle in instantclient_21_x86` |
+| **tnsnames.ora** | `C:\Oracle\instantclient_21_x64\tnsnames.ora` | `C:\Oracle\instantclient_21_x86\tnsnames.ora` |
+| **TNS_ADMIN** | set to install dir | set to install dir |
+| **In system PATH** | install dir added ✔ | install dir added ✔ |
+
+### Oracle Client (full Runtime)
+
+| | x64 | x86 |
+|--|-----|-----|
+| **Oracle Home** | `C:\Oracle\product\21.0.0\client_x64` | `C:\Oracle\product\21.0.0\client_x86` |
+| **network\admin** | `…\client_x64\network\admin\` | `…\client_x86\network\admin\` |
+| **Registry** | `HKLM\SOFTWARE\Oracle\`<br>`KEY_OraClient21Home1_x64` | `HKLM\SOFTWARE\WOW6432Node\Oracle\`<br>`KEY_OraClient21Home1_x86` |
+| **In system PATH** | `client_x64\bin` added ✔ | not added (intentional) |
 
 ---
 
 ## Log files on the client
 
+All transcript logs are written to:
 ```
 C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\
-    VCRedist_x64_Install.log
-    VCRedist_x64_Uninstall.log
-    VCRedist_x86_Install.log
-    VCRedist_x86_Uninstall.log
-    Oracle21c_x64_Install.log
-    Oracle21c_x64_Uninstall.log
-    Oracle21c_x86_Install.log
-    Oracle21c_x86_Uninstall.log
+    VCRedist_x64_Install.log        VCRedist_x64_Uninstall.log
+    VCRedist_x86_Install.log        VCRedist_x86_Uninstall.log
+    OracleODBC_x64_Install.log      OracleODBC_x64_Uninstall.log
+    OracleODBC_x86_Install.log      OracleODBC_x86_Uninstall.log
+    Oracle21c_x64_Install.log       Oracle21c_x64_Uninstall.log
+    Oracle21c_x86_Install.log       Oracle21c_x86_Uninstall.log
 ```
 
-Oracle OUI own logs (installer-level failures): `C:\Oracle\cfgtoollogs\`
+Oracle OUI logs (full client installer failures): `C:\Oracle\cfgtoollogs\`
 
 ---
 
-## TNS_ADMIN — when x64 and x86 coexist on the same machine
+## TNS_ADMIN — machines with multiple Oracle packages
 
-ODBC drivers pick up TNS files based on bitness. To guarantee both use the same file:
+### ODBC-only machines (both x64 and x86 ODBC)
+Each ODBC package sets `TNS_ADMIN` to its own install directory. The last package
+to install wins. To avoid ambiguity, point both to a shared folder:
 
-1. Change `$NetworkAdmin` in **both** Oracle install scripts to `C:\Oracle\network\admin`
+1. Edit `$TnsAdmin` in **both** ODBC install scripts to `C:\Oracle\network\admin`
+2. Create that folder in both ODBC package source folders and place your `.ora` files there
+3. Both scripts will then deploy to and read from the same location
+
+### Full client machines (x64 + x86 client)
+ODBC drivers and Oracle tools pick up TNS files based on bitness. To guarantee both use the same file:
+
+1. Change `$NetworkAdmin` in **both** Oracle Client install scripts to `C:\Oracle\network\admin`
 2. Uncomment the `TNS_ADMIN` block in both scripts
-3. Put a single copy of `tnsnames.ora` / `sqlnet.ora` in both `x64\` and `x86\` package folders —
-   they will both copy to `C:\Oracle\network\admin\` and overwrite each other harmlessly
-   (they are identical files).
+3. Place identical `tnsnames.ora` / `sqlnet.ora` in both `x64\` and `x86\` package folders —
+   both will deploy to `C:\Oracle\network\admin\` (overwriting each other harmlessly)
+
+### Machines with both ODBC and full Client packages
+Use a single shared `TNS_ADMIN = C:\Oracle\network\admin` across all four Oracle packages
+so every Oracle component reads from the same place regardless of bitness or package type.
