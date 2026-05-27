@@ -510,3 +510,223 @@ Driver={Oracle in instantclient_21_x64};DBQ=hostname:1521/SERVICENAME;
 
 > Use `Oracle in instantclient_21_x86` for 32-bit Excel. The driver name must exactly
 > match what is registered — verify it in `odbcad32.exe` under Drivers tab.
+
+---
+
+## Troubleshooting
+
+### Quick diagnostics checklist
+
+Run this on a problem machine (as administrator) to get a full picture in one go:
+
+```powershell
+# ── VCRedist ──────────────────────────────────────────────────────────────────
+Write-Host "`n--- VCRedist ---"
+@('HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64',
+  'HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\x86') | ForEach-Object {
+    $p = Get-ItemProperty $_ -EA SilentlyContinue
+    "$_  →  Installed=$($p.Installed)  Version=$($p.Version)"
+}
+
+# ── ODBC drivers ──────────────────────────────────────────────────────────────
+Write-Host "`n--- ODBC Drivers ---"
+@('HKLM:\SOFTWARE\ODBC\ODBCINST.INI\Oracle in instantclient_21_x64',
+  'HKLM:\SOFTWARE\WOW6432Node\ODBC\ODBCINST.INI\Oracle in instantclient_21_x86') | ForEach-Object {
+    $p = Get-ItemProperty $_ -EA SilentlyContinue
+    "$_  →  Driver=$($p.Driver)"
+}
+
+# ── System DSNs ───────────────────────────────────────────────────────────────
+Write-Host "`n--- System DSNs (64-bit) ---"
+Get-ChildItem 'HKLM:\SOFTWARE\ODBC\ODBC.INI' -EA SilentlyContinue |
+    Where-Object { $_.PSChildName -ne 'ODBC Data Sources' } | ForEach-Object {
+        $p = Get-ItemProperty $_.PSPath -EA SilentlyContinue
+        "$($_.PSChildName)  →  DBQ=$($p.DBQ)"
+    }
+Write-Host "`n--- System DSNs (32-bit) ---"
+Get-ChildItem 'HKLM:\SOFTWARE\WOW6432Node\ODBC\ODBC.INI' -EA SilentlyContinue |
+    Where-Object { $_.PSChildName -ne 'ODBC Data Sources' } | ForEach-Object {
+        $p = Get-ItemProperty $_.PSPath -EA SilentlyContinue
+        "$($_.PSChildName)  →  DBQ=$($p.DBQ)"
+    }
+
+# ── Environment ───────────────────────────────────────────────────────────────
+Write-Host "`n--- Environment ---"
+"TNS_ADMIN = $([System.Environment]::GetEnvironmentVariable('TNS_ADMIN','Machine'))"
+$path = [System.Environment]::GetEnvironmentVariable('PATH','Machine')
+$path.Split(';') | Where-Object { $_ -like '*oracle*' -or $_ -like '*instant*' } |
+    ForEach-Object { "PATH entry: $_" }
+
+# ── Key files ─────────────────────────────────────────────────────────────────
+Write-Host "`n--- Key files ---"
+@('C:\Oracle\instantclient_21_x64\tnsnames.ora',
+  'C:\Oracle\instantclient_21_x86\tnsnames.ora',
+  'C:\Oracle\product\21.0.0\client_x64\network\admin\tnsnames.ora',
+  'C:\Oracle\product\21.0.0\client_x86\network\admin\tnsnames.ora',
+  'C:\Oracle\network\admin\tnsnames.ora') | ForEach-Object {
+    "$_  →  $(if (Test-Path $_) { 'EXISTS' } else { 'missing' })"
+}
+```
+
+---
+
+### Intune deployment issues
+
+#### App stuck at "Installing" or reported as failed — but install succeeded
+
+**Cause:** The default 60-minute install timeout is too short for Oracle Client.
+**Fix:** In the Intune app → Properties → Program → set **Maximum allowed run time** to **120 minutes**.
+
+#### Detection says "Not installed" after a successful install
+
+1. Check that the **"Run as 32-bit process"** setting on the detection script matches the package:
+   - x64 packages → **No**
+   - x86 packages → **Yes**
+2. Run the detection script manually on the client as SYSTEM (use PsExec: `psexec -s powershell.exe`) and check its output.
+3. Confirm the registry key or file the detection script checks actually exists on the machine.
+
+#### Install command fails immediately with no log
+
+**Cause:** PowerShell execution policy blocking the script.
+**Fix:** Verify the install command includes `-ExecutionPolicy Bypass`:
+```
+powershell.exe -ExecutionPolicy Bypass -File Install-Oracle21c_x64.ps1
+```
+
+#### Intune shows error code 0x80070002 (file not found)
+
+The `.intunewin` content was not extracted correctly, or the setup file name passed to
+`IntuneWinAppUtil.exe` with `-s` does not match the actual script filename. Repackage
+and ensure the `-s` value exactly matches the PS1 filename including case.
+
+---
+
+### Oracle Client (full Runtime) issues
+
+#### OUI installer exits with a non-zero code
+
+1. Check `C:\Oracle\cfgtoollogs\` for OUI log files — they contain the exact failure reason.
+2. Check the Intune transcript log: `C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\Oracle21c_x64_Install.log`
+3. Common causes:
+   | Exit code | Meaning |
+   |-----------|---------|
+   | 1 | General OUI error — check cfgtoollogs |
+   | 4 | Prerequisite check failed — `-ignorePrereq` should suppress this; verify the flag is in the command |
+   | 6 | Prerequisite warning only — treated as success in the script |
+
+#### "Oracle Home already exists" / second install fails
+
+The Oracle Home directory exists from a previous partial or full install.
+The install script skips `setup.exe` if `sqlplus.exe` is already present, but if the
+directory exists without `sqlplus.exe` OUI may refuse to install into it.
+
+**Fix:**
+1. Run the uninstall script first, or manually delete the Oracle Home directory.
+2. Also remove the Oracle Inventory entry: `C:\Program Files\Oracle\Inventory\ContentsXML\inventory.xml` — delete the `<HOME>` element for the affected home.
+
+#### PATH changes not visible in an open application
+
+PATH is a system environment variable — running applications inherit the PATH from when
+they launched. **Log off and back on** (or restart) after the first Oracle install for
+PATH changes to take effect in existing user sessions.
+
+---
+
+### Oracle ODBC (Instant Client) issues
+
+#### `odbc_install.exe` exits with a non-zero code
+
+1. Check the transcript log: `OracleODBC_x64_Install.log`
+2. Verify VCRedist is installed first — `odbc_install.exe` silently fails without it.
+3. Run `odbc_install.exe` manually from the install directory as administrator to see any console output.
+
+#### Driver not visible in ODBC Administrator after install
+
+- Make sure you are opening the **correct** ODBC administrator for the driver bitness:
+  - x64 driver → `C:\Windows\System32\odbcad32.exe`
+  - x86 driver → `C:\Windows\SysWOW64\odbcad32.exe`
+- Verify the registry key exists:
+  ```powershell
+  # x64
+  Get-ItemProperty 'HKLM:\SOFTWARE\ODBC\ODBCINST.INI\Oracle in instantclient_21_x64'
+  # x86
+  Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\ODBC\ODBCINST.INI\Oracle in instantclient_21_x86'
+  ```
+- If the key is missing, re-run `odbc_install.exe` manually from `C:\Oracle\instantclient_21_x64\` as administrator.
+
+#### ZIP extraction fails or `oci.dll` is missing after install
+
+The Basic and ODBC ZIPs must both be present in the package folder. Verify both wildcard
+patterns match your downloaded filenames:
+- x64: `instantclient-basic-windows.x64-21*.zip` and `instantclient-odbc-windows.x64-21*.zip`
+- x86: `instantclient-basic-nt-21*.zip` and `instantclient-odbc-nt-21*.zip`
+
+If filenames differ, rename them to match or update the `Get-ChildItem -Filter` patterns
+in the install script.
+
+---
+
+### DSN issues
+
+#### DSN not visible in Excel / Access
+
+- **Wrong bitness:** Excel 32-bit can only see 32-bit DSNs; Excel 64-bit can only see 64-bit DSNs.
+  Run `Create-OracleDSN.ps1` with both `Create64 = $true` and `Create86 = $true` to cover both.
+- **User DSN vs System DSN:** The script creates System DSNs (HKLM). If a User DSN with
+  the same name exists in HKCU it may shadow the System DSN for that user.
+  Check: `Get-ChildItem 'HKCU:\SOFTWARE\ODBC\ODBC.INI'`
+
+#### DSN exists but connection fails with ORA-12154
+
+`ORA-12154: TNS: could not resolve the connect identifier specified`
+
+This means the TNS alias in the DSN (`DBQ` value) was not found in `tnsnames.ora`.
+
+1. Confirm `TNS_ADMIN` points to the folder containing `tnsnames.ora`:
+   ```powershell
+   [System.Environment]::GetEnvironmentVariable('TNS_ADMIN', 'Machine')
+   ```
+2. Confirm the alias in the DSN exactly matches an entry in `tnsnames.ora` (case-insensitive, but watch for spaces).
+3. If using EZConnect (`hostname:port/service`) in `DBQ`, `tnsnames.ora` is not needed — verify the hostname and port are reachable.
+4. Test name resolution directly:
+   ```cmd
+   tnsping PROD
+   ```
+   (`tnsping` is available in the full Oracle Client; for Instant Client use a test connection via ODBC administrator.)
+
+#### ORA-12541: No listener / ORA-12560: Protocol adapter error
+
+The Oracle database listener is not reachable from the client:
+1. Verify network connectivity: `Test-NetConnection -ComputerName <dbhost> -Port 1521`
+2. Check firewall rules on the client and on the network path to the database server.
+3. Verify the host and port in `tnsnames.ora` are correct.
+
+#### ORA-01017: Invalid username/password
+
+Credentials are wrong or the account is locked. This is a database-side issue, not a
+driver or DSN problem. Verify credentials with the DBA.
+
+---
+
+### Excel-specific issues
+
+#### "Data source name not found and no default driver specified"
+
+The DSN name in the Excel connection does not match what is registered, or the DSN was
+created for the wrong bitness. Steps:
+1. Open the correct `odbcad32.exe` for your Excel bitness and confirm the DSN name is listed exactly.
+2. If missing, re-run `Create-OracleDSN.ps1` and check `OracleDSN_Create.log`.
+
+#### Oracle driver not listed in Excel "Get Data → ODBC" source list
+
+Excel only shows drivers matching its own bitness. If no Oracle driver appears:
+1. Confirm the correct ODBC package (x64 or x86) was installed for this machine's Office bitness.
+2. Check the driver registration (see [Driver not visible in ODBC Administrator](#driver-not-visible-in-odbc-administrator-after-install) above).
+3. Restart Excel after driver installation — it caches the driver list at launch.
+
+#### Excel prompts for credentials on every open / connection string saved in workbook
+
+This is expected ODBC behaviour. To avoid it:
+- Use **Windows Authentication** if your Oracle DB supports it (requires additional Oracle config).
+- Or save the workbook as a trusted document and tick "Save password" in the connection wizard
+  (note: password is stored obfuscated, not encrypted — evaluate your security policy first).
