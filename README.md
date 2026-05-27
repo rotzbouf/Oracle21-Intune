@@ -87,14 +87,17 @@ Oracle21_Intune/
 │   ├── Uninstall-Oracle21c_x64.ps1
 │   └── Detect-Oracle21c_x64.ps1
 │
-└── x86/
-    ├── setup.exe + Oracle installer files  ← ADD: extracted Oracle Client x86
-    ├── tnsnames.ora                    ← ADD: your file
-    ├── sqlnet.ora                      ← ADD: your file
-    ├── client_install_x86.rsp
-    ├── Install-Oracle21c_x86.ps1
-    ├── Uninstall-Oracle21c_x86.ps1
-    └── Detect-Oracle21c_x86.ps1
+├── x86/
+│   ├── setup.exe + Oracle installer files  ← ADD: extracted Oracle Client x86
+│   ├── tnsnames.ora                    ← ADD: your file
+│   ├── sqlnet.ora                      ← ADD: your file
+│   ├── client_install_x86.rsp
+│   ├── Install-Oracle21c_x86.ps1
+│   ├── Uninstall-Oracle21c_x86.ps1
+│   └── Detect-Oracle21c_x86.ps1
+│
+└── dsn/
+    └── Create-OracleDSN.ps1            ← configure DSN names + TNS aliases, deploy as Intune platform script
 ```
 
 ---
