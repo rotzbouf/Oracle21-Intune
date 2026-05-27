@@ -7,6 +7,30 @@ Choose the packages that match your use case — ODBC-only for Excel/Access, ful
 
 ---
 
+## Contents
+
+- [Which packages do you need?](#which-packages-do-you-need)
+- [Package overview & dependency chain](#package-overview--dependency-chain)
+- [Repository layout](#repository-layout)
+- [Step 1 — Download and populate the folders](#step-1--download-and-populate-the-folders)
+- [Step 2 — Create the .intunewin packages](#step-2--create-the-intunewin-packages)
+- [Step 3 — Configure each app in Intune](#step-3--configure-each-app-in-intune)
+- [Return codes](#return-codes--add-to-every-app)
+- [What the scripts do on the client](#what-the-scripts-do-on-the-client)
+- [Install results on the client](#install-results-on-the-client)
+- [Log files on the client](#log-files-on-the-client)
+- [TNS\_ADMIN](#tns_admin--machines-with-multiple-oracle-packages)
+- [Creating Oracle ODBC DSNs](#creating-oracle-odbc-dsns)
+- [Troubleshooting](#troubleshooting)
+  - [Quick diagnostics checklist](#quick-diagnostics-checklist)
+  - [Intune deployment issues](#intune-deployment-issues)
+  - [Oracle Client issues](#oracle-client-full-runtime-issues)
+  - [Oracle ODBC issues](#oracle-odbc-instant-client-issues)
+  - [DSN issues](#dsn-issues)
+  - [Excel-specific issues](#excel-specific-issues)
+
+---
+
 ## Which packages do you need?
 
 | Use case | Packages to deploy |
