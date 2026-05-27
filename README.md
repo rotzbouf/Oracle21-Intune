@@ -382,3 +382,128 @@ ODBC drivers and Oracle tools pick up TNS files based on bitness. To guarantee b
 ### Machines with both ODBC and full Client packages
 Use a single shared `TNS_ADMIN = C:\Oracle\network\admin` across all four Oracle packages
 so every Oracle component reads from the same place regardless of bitness or package type.
+
+---
+
+## Creating Oracle ODBC DSNs
+
+After the ODBC driver is installed, applications connect to Oracle databases through
+a **DSN (Data Source Name)** — a named connection profile stored in the Windows registry.
+DSNs appear by name in Excel's "Get Data" dialog, Access linked tables, and any ODBC-aware app.
+
+### System DSN vs User DSN
+
+Always use **System DSNs** for Intune/enterprise deployments:
+
+| | System DSN | User DSN |
+|--|-----------|---------|
+| **Registry location** | `HKLM` (all users) | `HKCU` (current user only) |
+| **Created by** | SYSTEM context script ✔ | Requires user session |
+| **Visible to all users** | ✔ | ✗ |
+| **Survives user change** | ✔ | ✗ |
+
+### ⚠️ The 32-bit vs 64-bit ODBC administrator pitfall
+
+There are **two separate ODBC administrators** on every 64-bit Windows machine.
+Opening the wrong one will show a completely different set of drivers and DSNs.
+
+| Executable | Manages | Use for |
+|-----------|---------|---------|
+| `C:\Windows\System32\odbcad32.exe` | 64-bit drivers & DSNs | Excel x64, Power BI |
+| `C:\Windows\SysWOW64\odbcad32.exe` | 32-bit drivers & DSNs | Excel x86, Access |
+
+> The **Control Panel shortcut** and the Windows Search result both open the **64-bit** one.
+> To reach the 32-bit administrator, run `C:\Windows\SysWOW64\odbcad32.exe` explicitly.
+
+The registry locations mirror this split:
+
+| Bitness | DSN registry path |
+|---------|------------------|
+| 64-bit System DSN | `HKLM\SOFTWARE\ODBC\ODBC.INI\<DSN_NAME>` |
+| 32-bit System DSN | `HKLM\SOFTWARE\WOW6432Node\ODBC\ODBC.INI\<DSN_NAME>` |
+
+---
+
+### Creating DSNs manually (testing / one-off)
+
+1. Open the correct ODBC administrator (see table above)
+2. **System DSN** tab → **Add**
+3. Select `Oracle in instantclient_21_x64` (or `x86`) → **Finish**
+4. Fill in:
+   | Field | Value |
+   |-------|-------|
+   | Data Source Name | e.g. `OracleDB_PROD` |
+   | Description | optional |
+   | TNS Service Name | the alias from `tnsnames.ora`, e.g. `PROD` |
+   | User ID | leave blank to prompt at connect time |
+5. Click **Test Connection** to verify → **OK**
+
+---
+
+### Creating DSNs automatically via Intune
+
+Use `dsn/Create-OracleDSN.ps1` in this repository. It creates System DSNs for any number
+of databases in a single run, for both 64-bit and 32-bit drivers simultaneously.
+
+**Configuration** — edit the `$DSNList` block at the top of the script:
+
+```powershell
+$DSNList = @(
+    @{
+        Name        = 'OracleDB_PROD'   # appears in Excel "Get Data" dialog
+        TNSAlias    = 'PROD'            # must match an alias in tnsnames.ora
+        Description = 'Oracle Production Database'
+        Create64    = $true             # create 64-bit DSN (Excel x64, Power BI)
+        Create86    = $true             # create 32-bit DSN (Excel x86, Access)
+    },
+    @{
+        Name        = 'OracleDB_TEST'
+        TNSAlias    = 'TEST'
+        Description = 'Oracle Test Database'
+        Create64    = $true
+        Create86    = $true
+    }
+)
+```
+
+**Deploy as an Intune Platform Script:**
+
+`Devices > Scripts > Add > Windows 10 and later`
+
+| Setting | Value |
+|---------|-------|
+| Script file | `Create-OracleDSN.ps1` |
+| Run this script using the logged on credentials | **No** (run as System) |
+| Run script in 64-bit PowerShell host | **Yes** |
+| Enforce script signature check | No |
+
+> **Dependency:** Assign this script to the same device group **after** the ODBC driver
+> apps are installed. Use a filter or a delay group tag if needed, or deploy it as a
+> Win32 app with the ODBC packages set as dependencies.
+
+**Log file:** `C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\OracleDSN_Create.log`
+
+---
+
+### DSN-less connections (alternative)
+
+For applications that support it, skip the DSN entirely and use an inline connection string.
+This is useful for Power Query / Excel Power Pivot, Python (`cx_Oracle`), and .NET apps.
+
+**EZConnect format** (no `tnsnames.ora` needed):
+```
+Driver={Oracle in instantclient_21_x64};DBQ=hostname:1521/SERVICENAME;UID=myuser;PWD=mypassword;
+```
+
+**TNS alias format** (requires `tnsnames.ora` + `TNS_ADMIN`):
+```
+Driver={Oracle in instantclient_21_x64};DBQ=PROD;UID=myuser;PWD=mypassword;
+```
+
+**Excel "Get Data" → ODBC → Advanced options** connection string (no DSN required):
+```
+Driver={Oracle in instantclient_21_x64};DBQ=hostname:1521/SERVICENAME;
+```
+
+> Use `Oracle in instantclient_21_x86` for 32-bit Excel. The driver name must exactly
+> match what is registered — verify it in `odbcad32.exe` under Drivers tab.
