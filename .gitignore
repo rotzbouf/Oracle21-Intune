@@ -16,6 +16,16 @@ x64/sqlnet.ora
 x86/tnsnames.ora
 x86/sqlnet.ora
 
+# ── Instant Client ZIPs (large binaries — do not commit) ─────────────────────
+odbc_x64/instantclient-*.zip
+odbc_x86/instantclient-*.zip
+
+# ── tnsnames / sqlnet for ODBC packages ──────────────────────────────────────
+odbc_x64/tnsnames.ora
+odbc_x64/sqlnet.ora
+odbc_x86/tnsnames.ora
+odbc_x86/sqlnet.ora
+
 # ── IntuneWinAppUtil output ───────────────────────────────────────────────────
 *.intunewin
 Output/
