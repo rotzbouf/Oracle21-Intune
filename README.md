@@ -1,4 +1,4 @@
-# Oracle 21c Client + VCRedist — Intune Win32 Deployment
+# Oracle 21c Client + ODBC + VCRedist — Intune Win32 Deployment
 
 [![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](https://unlicense.org)
 
