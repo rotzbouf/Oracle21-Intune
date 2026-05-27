@@ -1,5 +1,7 @@
 # Oracle 21c Client + VCRedist — Intune Win32 Deployment
 
+[![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](https://unlicense.org)
+
 Four Win32 packages, fully bundled (.intunewin contains all installer files).
 
 ---
