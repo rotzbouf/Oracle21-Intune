@@ -1,0 +1,28 @@
+# ── Oracle installer files (large binaries — do not commit) ──────────────────
+# Place these manually in the package folders before running IntuneWinAppUtil.
+x64/setup.exe
+x64/client/
+x86/setup.exe
+x86/client/
+
+# ── VCRedist installers (small but still binaries) ───────────────────────────
+vcredist_x64/VC_redist.x64.exe
+vcredist_x86/VC_redist.x86.exe
+
+# ── Your tnsnames / sqlnet files (may contain sensitive hostnames/passwords) ─
+# Remove these lines if you want to track them in git (e.g. private repo only).
+x64/tnsnames.ora
+x64/sqlnet.ora
+x86/tnsnames.ora
+x86/sqlnet.ora
+
+# ── IntuneWinAppUtil output ───────────────────────────────────────────────────
+*.intunewin
+Output/
+
+# ── Windows / editor artefacts ───────────────────────────────────────────────
+Thumbs.db
+Desktop.ini
+*.swp
+*.bak
+.DS_Store

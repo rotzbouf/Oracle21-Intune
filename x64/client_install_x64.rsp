@@ -1,0 +1,30 @@
+####################################################################
+# Oracle Client 21c - Silent Install Response File (64-bit)
+# Generated for Intune Win32 deployment
+####################################################################
+
+#-------------------------------------------------------------------------------
+# Do not change the following system generated value.
+#-------------------------------------------------------------------------------
+oracle.install.responseFileVersion=/oracle/install/rspfmt_clientinstall_response_schema_v21.0.0
+
+#-------------------------------------------------------------------------------
+# Install type: Runtime (minimal client for connecting to Oracle databases)
+# Options: InstantClient | Administrator | Runtime | Custom
+#-------------------------------------------------------------------------------
+oracle.install.client.installType=Runtime
+
+#-------------------------------------------------------------------------------
+# ORACLE_BASE: Root of the Oracle directory tree
+#-------------------------------------------------------------------------------
+ORACLE_BASE=C:\Oracle
+
+#-------------------------------------------------------------------------------
+# ORACLE_HOME: Full path for this Oracle Home (must not already exist)
+#-------------------------------------------------------------------------------
+ORACLE_HOME=C:\Oracle\product\21.0.0\client_x64
+
+#-------------------------------------------------------------------------------
+# ORACLE_HOME_NAME: Logical name for this Oracle Home
+#-------------------------------------------------------------------------------
+ORACLE_HOME_NAME=OraClient21Home1_x64
